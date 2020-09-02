@@ -1,0 +1,60 @@
+https://linoxide.com/mail/install-configure-postfix-ubuntu/
+
+Step 1) Install and configure Postfixadmin
+Postfixadmin is a web module that allows you to easily manipulate virtual domains and users in a database.
+
+a) Download postfixadmin
+First, we will install the required packages
+
+# apt install php-imap php-mbstring php7.2-imap php7.2-mbstring
+
+Normally postfixadmin is present on the default repositories of Ubuntu 18.04 but it will try to install Apache and PostgreSQL instead of Nginx and MySql. So, to keep our configuration, we will download the actual latest version 3.2 from source on the Github site project and save it in /opt folder
+
+# wget -P /opt https://github.com/postfixadmin/postfixadmin/archive/postfixadmin-3.2.4.tar.gz
+
+# cd /opt && tar xvf postfixadmin-3.2.4.tar.gz
+Now we should rename it
+
+# mv postfixadmin-postfixadmin-3.2/ postfixadmin
+Postfixadmin uses a script called setup.php that we will use through the web server during the installation.  On the previous version of postfix (3.1 and oldest), this script is directly in the Postfixadmin root folder but in the actual version (3.2), it's contained in the sub-directory public of the postfixadmin folder. Normally we should move postfixadmin to the root folder of our Nginx web server but with this new version, we will only create a symbolic link of the public folder which contains the script then, rename it for some security
+
+# ln -s /opt/postfixadmin/public/ /var/www/html/pfa
+root@li1002-235:~# ls -l /var/www/html/
+total 4
+-rw-r--r-- 1 root root 612 Jun 10 04:51 index.nginx-debian.html
+lrwxrwxrwx 1 root root  25 Jun 12 04:01 pfa -> /opt/postfixadmin/public/
+b) Create the postfix database
+Now we should connect to mysql database for some configurations
+
+# mysql -u root -p
+Enter password:
+Then create the database and the user
+
+mysql> CREATE DATABASE postfix;
+Query OK, 1 row affected (0.00 sec)
+
+mysql> CREATE USER 'postfix'@'localhost' IDENTIFIED BY '123456a@Cyber';
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> GRANT ALL PRIVILEGES ON `postfix` . * TO 'postfix'@'localhost';
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> FLUSH PRIVILEGES;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> exit
+Bye
+c) Configure postfixadmin
+Now that we have configured the database, we should indicate it to postfixadmin so that it could know where to get the information. To do this, create the /opt/postfixadmin/config.local.php file and add the content below
+
+# vim /opt/postfixadmin/config.local.php
+
+<?php
+$CONF['database_type'] = 'mysqli';
+$CONF['database_user'] = 'postfix';
+$CONF['database_password'] = 'postfix-db-password';
+$CONF['database_name'] = 'postfix';
+
+$CONF['configured'] = true;
+?>
+
