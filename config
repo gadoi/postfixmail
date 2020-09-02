@@ -52,7 +52,7 @@ Now that we have configured the database, we should indicate it to postfixadmin 
 <?php
 $CONF['database_type'] = 'mysqli';
 $CONF['database_user'] = 'postfix';
-$CONF['database_password'] = 'postfix-db-password';
+$CONF['database_password'] = '123456a@Cyber';
 $CONF['database_name'] = 'postfix';
 
 $CONF['configured'] = true;
