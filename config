@@ -246,3 +246,90 @@ We will edit:
 
 the 10-auth.conf file to modify the connection mechanisms by adding or uncommenting the lines. Dovecot uses the system users by default but we use Mysql users
 # cp 10-auth.conf 10-auth.conf.bak
+# vim 10-auth.conf
+
+auth_mechanisms = plain login
+#!include auth-system.conf.ext
+!include auth-sql.conf.ext
+the auth-sql.conf.ext file for the sql configuration
+# cp auth-sql.conf.ext auth-sql.conf.ext.bak
+# vim auth-sql.conf.ext
+
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+
+userdb {
+  driver = static
+  args = uid=vmail gid=vmail home=/var/mail/vmail/%d/%n
+}
+now let's edit the /etc/dovecot/dovecot-sql.conf.ext to tell dovecot how to connect to the SQL database
+# cp /etc/dovecot/dovecot-sql.conf.ext /etc/dovecot/dovecot-sql.conf.ext.bak
+# vim /etc/dovecot/dovecot-sql.conf.ext
+
+driver = mysql
+connect = host=127.0.0.1 dbname=postfix user=postfix password=postfix-db-password
+password_query = SELECT username,domain,password FROM mailbox WHERE username='%u';
+default_pass_scheme = MD5-CRYPT
+Now we will edit the 10-mail.conf file to configure the mail location directory
+# cp 10-mail.conf 10-mail.conf.bak
+# vim 10-mail.conf
+mail_location = maildir:/var/mail/vmail/%d/%n/Maildir
+mail_privileged_group = mail
+Now we will edit the 10-master.conf file for the connection to the socket.
+# cp 10-master.conf 10-master.conf.bak
+# vim 10-master.conf
+
+service auth {
+  unix_listener auth-userdb {
+    mode = 0600
+    user = vmail
+  }
+
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0660
+    user = postfix
+    group = postfix
+  }
+
+  user = dovecot
+}
+Now we need to configure the LDA 15-lda.conf file to indicate sieve in order to automatically organize mail into the corresponding folder
+# cp 15-lda.conf 15-lda.conf.bak
+# vim 15-lda.conf
+
+protocol lda {
+  # Space separated list of plugins to load (default is global mail_plugins).
+  mail_plugins = $mail_plugins sieve
+}
+We should give permission if we want that the vmail user can launch dovecot
+
+# chgrp vmail /etc/dovecot/dovecot.conf
+Now you can restart the dovecot service
+
+# systemctl restart dovecot
+You can check the mail log for any error
+
+# tail -n 20 -f /var/log/mail.log
+c) Integrate dovecot to postfix
+Now that we have configured dovecot, we should indicate postfix to work with dovecot. Edit the master postfix configuration file and add the lines below at the end of the file
+
+# vim /etc/postfix/master.cf
+
+dovecot   unix  -       n       n       -       -       pipe
+  flags=DRhu user=vmail:vmail argv=/usr/lib/dovecot/deliver -f ${sender} -d ${user}@${nexthop}
+Now edit the main postfix configuration file
+
+ # vim /etc/postfix/main.cf
+virtual_transport = dovecot
+dovecot_destination_recipient_limit = 1
+Then restart postfix
+
+# systemctl restart postfix
+You can check the mail log for any error
+
+# tail -n 20 -f /var/log/mail.log
+Jun 14 08:10:00 myserver postfix/postfix-script[28361]: starting the Postfix mail system
+Jun 14 08:10:00 myserver postfix/master[28363]: daemon started -- version 3.3.0, configuration /etc/postfix
+
