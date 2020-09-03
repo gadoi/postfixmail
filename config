@@ -111,3 +111,35 @@ Now we can check the configuration. We will run a command that will execute the 
 
 # postmap -q cybergate.info mysql:/etc/postfix/sql/mysql_virtual_domains_maps.cf
 cybergate.info
+
+As you can see, postfix is able to retrieve the domains stored in our database
+
+Mailbox to store all the virtual email addresses. It will be used to verify also if the mailboxes exist
+# vim /etc/postfix/sql/mysql_virtual_mailbox_maps.cf
+user = postfix
+password = 123456a@Cyber
+hosts = 127.0.0.1
+dbname = postfix
+query = SELECT maildir FROM mailbox WHERE username='%s' AND active = '1'
+Now let's update the configuration file
+
+# postconf -e virtual_mailbox_maps=mysql:/etc/postfix/sql/mysql_virtual_mailbox_maps.cf
+Run the command to test the query on the database
+
+# postmap -q chienhm@cybergate.info mysql:/etc/postfix/sql/mysql_virtual_mailbox_maps.cf
+cybergate.info/chienhm/
+Alias to contain the different email aliases.
+
+# vim /etc/postfix/sql/mysql_virtual_alias_maps.cf
+user = postfix
+password = 123456a@Cyber
+hosts = 127.0.0.1
+dbname = postfix
+query = SELECT goto FROM alias WHERE address='%s' AND active = '1'
+Now add the configuration
+
+# postconf -e virtual_alias_maps=mysql:/etc/postfix/sql/mysql_virtual_alias_maps.cf
+Now run the command to test the query. It is the destination user (alain@mytuto.com) that should be displayed and not the abuse address. It shows that postfix can do the matching.
+
+# postmap -q admin@cybergate.info mysql:/etc/postfix/sql/mysql_virtual_alias_maps.cf
+superadmin@cybergate.info
