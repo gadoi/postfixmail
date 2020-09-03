@@ -143,3 +143,105 @@ Now run the command to test the query. It is the destination user (alain@mytuto.
 
 # postmap -q admin@cybergate.info mysql:/etc/postfix/sql/mysql_virtual_alias_maps.cf
 superadmin@cybergate.info
+
+Make sure that those files are not readable by the normal users because the passwords are stored in clear.
+
+# ls -l /etc/postfix/sql/
+total 12
+-rw-r--r-- 1 root root 138 Jun 13 06:53 mysql_virtual_alias_maps.cf
+-rw-r--r-- 1 root root 140 Jun 13 05:18 mysql_virtual_domains_maps.cf
+-rw-r--r-- 1 root root 144 Jun 13 07:04 mysql_virtual_mailbox_maps.cf
+In order for postfix to read those file, we can change the group owner to postfix
+
+# chgrp postfix /etc/postfix/sql/mysql_*.cf
+# ls -l /etc/postfix/sql/
+total 12
+-rw-r--r-- 1 root postfix 138 Jun 13 06:53 mysql_virtual_alias_maps.cf
+-rw-r--r-- 1 root postfix 140 Jun 13 05:18 mysql_virtual_domains_maps.cf
+-rw-r--r-- 1 root postfix 144 Jun 13 07:04 mysql_virtual_mailbox_maps.cf
+c) Configure postfix
+Now we will manually edit the postfix main configuration file. So, make a copy before editing
+
+# cp /etc/postfix/main.cf /etc/postfix/main.cf.bak
+Now we will activate SASL to force authentication for sending emails and hand off authentication to Dovecot. Be sure to add lines below
+
+# vim /etc/postfix/main.cf
+
+# Allow authenticated users to send email, and use Dovecot to authenticate them. Tells Postfix to use Dovecot for authentication
+smtpd_sasl_type = dovecot
+## Path to the Postfix auth socket
+smtpd_sasl_path = private/auth
+## Tells Postfix to let people send email if they've authenticated to the server.
+## Otherwise they can only send if they're logged in (SSH)
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_security_options = noanonymous
+smtpd_sasl_local_domain = $myhostname
+# Enable authentication only for those with a TLS connection.
+smtpd_tls_security_level = may
+smtpd_tls_auth_only = no
+# Tells Postfix who can send email: SASL-authenticated users connecting from a network specified in 'mynetworks'
+smtpd_recipient_restrictions = permit_mynetworks permit_sasl_authenticated reject_unauth_destination
+Now let's edit the /etc/postfix/master.cf configuration file. It's the process configuration file. We will enable secure SMTP ports by adding or uncomment the lines below and make a copy before
+
+# cp /etc/postfix/master.cf /etc/postfix/master.cf.bak
+# vim /etc/postfix/master.cf
+submission inet n       -       y       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+#  -o smtpd_tls_auth_only=yes
+#  -o smtpd_reject_unlisted_recipient=no
+#  -o smtpd_client_restrictions=$mua_client_restrictions
+  -o smtpd_client_restrictions=permit_sasl_authenticated,reject
+#  -o smtpd_helo_restrictions=$mua_helo_restrictions
+#  -o smtpd_sender_restrictions=$mua_sender_restrictions
+#  -o smtpd_recipient_restrictions=
+#  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+smtps     inet  n       -       y       -       -       smtpd
+  -o syslog_name=postfix/smtps
+  -o smtpd_tls_wrappermode=yes
+  -o smtpd_sasl_auth_enable=yes
+#  -o smtpd_reject_unlisted_recipient=no
+#  -o smtpd_client_restrictions=$mua_client_restrictions
+#  -o smtpd_helo_restrictions=$mua_helo_restrictions
+#  -o smtpd_sender_restrictions=$mua_sender_restrictions
+#  -o smtpd_recipient_restrictions=
+#  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_client_restrictions=permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+Now you can run the postconf -n command to check some errors
+
+# postconf -n
+alias_database = hash:/etc/aliases
+alias_maps = hash:/etc/aliases
+...
+...
+If you have no warning messages, it means that your files do not contain errors. Now you can restart the postfix service
+
+# systemctl restart postfix
+# systemctl status postfix
+
+Step 3) Install and configure Dovecot
+Now that Postfix is installed and configured, we need to install postfix to manage the pop and imap protocols, which allow us to recover our emails.
+
+a) Installation of Dovecot
+Dovecot packages are presents in the Ubuntu 18.04 default repositories. We will install it with the mysql support. We will install sieve which is useful because it will automatically put the mails into the corresponding folders. It means that, for each domain, it will create a corresponding folder containing the corresponding folder of a virtual user to store its email files.
+
+# apt install dovecot-imapd dovecot-mysql dovecot-managesieved
+...
+
+Understand that, if you don't want to use sieve, for each domain, you will probably need to manually create the corresponding folders in order to store its emails and this not easy if you have many domains.
+
+b) Configuration of dovecot
+The configuration of Dovecot is contained into multiples files in /etc/dovecot/conf.d. First, check the content of the /etc/dovecot/dovecot.conf to have these lines uncommented
+
+!include_try /usr/share/dovecot/protocols.d/*.protocol
+!include conf.d/*.conf
+Now go to the folder containing the configuration files
+
+# cd /etc/dovecot/conf.d
+We will edit:
+
+the 10-auth.conf file to modify the connection mechanisms by adding or uncommenting the lines. Dovecot uses the system users by default but we use Mysql users
+# cp 10-auth.conf 10-auth.conf.bak
