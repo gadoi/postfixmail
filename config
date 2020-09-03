@@ -58,3 +58,56 @@ $CONF['database_name'] = 'postfix';
 $CONF['configured'] = true;
 ?>
 
+Step 2) Install and configure postfix
+a) Install postfix
+Now we can install the postfix packages.
+
+# apt install postfix postfix-mysql sasl2-bin
+...
+
+You will have to answer two question about the type of mail and the name of your mail server. Make sure to replace the hostname and domain values with yours
+
+the type of mail configuration: Internet Site
+the system mail name: hostname.domain.com
+Make sure that sasl run at the startup by editing its configuration file
+
+# vim /etc/default/saslauthd
+
+# Should saslauthd run automatically on startup? (default: no)
+START=yes
+Now restart the service
+
+# systemctl restart saslauthd
+As we are configuring a mail server with virtual users, we need an owner of all mailboxes so will create a system user which will be used by all virtual users to access email on the server. First, create the group owner and the folder which will store the mailboxes.
+
+# groupadd -g 5000 vmail && mkdir -p /var/vmail
+Now create the owner
+
+# useradd -u 5000 vmail -g vmail -s /usr/sbin/nologin -d /var/vmail
+Make sure to give the permission of the mail directory to the owner so that it can store the mails into the appropriate directories.
+
+# chown -R vmail:vmail /var/vmail
+
+
+If you don't do this, dovecot will not be able to create the required folders to store the emails.
+
+b) Create the configuration files for the database
+Now create a folder which will contain some database files
+
+# mkdir -p /etc/postfix/sql
+Postfix need 03 database files which will allow it to access the database that we created earlier:
+
+Domains to contain the list of domain names hosted on the server. it will allow postfix to determine if our server is in charge of a domain (mytuto.com) when it receives an email (user@mytuto.com) on it. If it's the case, it will mean that the domain is in our database.
+# vim /etc/postfix/sql/mysql_virtual_domains_maps.cf
+user = postfix
+password = 123456a@Cyber
+hosts = 127.0.0.1
+dbname = postfix
+query = SELECT domain FROM domain WHERE domain='%s' AND active = '1'
+We will enable the configuration and add it automatically to the /etc/postfix/main.cf file and reload the postfix configuration to avoid having to do it manually. So the file will be updated everytime you use this command with new values.
+
+# postconf -e virtual_mailbox_domains=mysql:/etc/postfix/sql/mysql_virtual_domains_maps.cf
+Now we can check the configuration. We will run a command that will execute the query contained in the file in order to search for a domain in our database. An element (the searched domain) must be returned or nothing if the domain is not present.
+
+# postmap -q cybergate.info mysql:/etc/postfix/sql/mysql_virtual_domains_maps.cf
+cybergate.info
