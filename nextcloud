@@ -1,1 +1,91 @@
 
+Install Nextcloud 19 on Ubuntu 20.04
+https://www.linuxbabe.com/ubuntu/install-nextcloud-ubuntu-20-04-apache-lamp-stack
+https://riegers.in/nextcloud-installation-guide-ubuntu-20-04/
+https://www.howtoforge.com/tutorial/how-to-install-nextcloud-on-debian-10/
+https://www.booleanworld.com/install-nextcloud-ubuntu/
+
+
+Nextcloud dependencies are:
+
+PHP
+Apache / Nginx web server
+MySQL / MariaDB Database server
+
+
+Step 1: Install vs configure PHP
+apt install -y php-cli php-fpm php-json php-intl php-imagick php-pdo php-mysql php-zip php-gd php-mbstring php-curl php-xml php-pear php-bcmath
+
+sudo apt install php-imagick php7.4-common php7.4-mysql php7.4-fpm php7.4-gd php7.4-json php7.4-curl  php7.4-zip php7.4-xml php7.4-mbstring php7.4-bz2 php7.4-intl php7.4-bcmath php7.4-gmp
+
+nano /etc/php/7.4/apache2/php.ini
+Change the following settings:
+
+memory_limit = 512M
+upload_max_filesize = 500M
+post_max_size = 500M
+max_execution_time = 300
+date.timezone = Asia/Ho_Chi_Minh
+
+Step 2: Install MySQL / MariaDB Database Server
+
+$sudo apt -y install mariadb-server
+or 
+#apt install mysql-server
+
+sudo mysql_secure_installation
+
+Change authentication plugin to allow use of root password.
+
+$ sudo mysql -u root
+UPDATE mysql.user SET plugin = 'mysql_native_password' WHERE User = 'root';
+FLUSH PRIVILEGES;
+QUIT;
+
+mysql -u root
+You should obviously change your root password after installation
+mysqladmin -u root password [newpassword]
+
+After the installation of the database server, you need to create a database and user for Nextcloud
+
+$ mysql -u root -p
+CREATE USER 'nextcloudusr'@'localhost' identified by '123456a@Cyber';
+CREATE DATABASE nextcloud;
+GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloudusr'@'localhost'; 
+FLUSH PRIVILEGES;
+QUIT;
+
+Confirm if the user can connect to the database with the provided password:
+#mysql -u nextcloud -p
+mysql>SHOW DATABASES;
+
+OR
+Create a Database and User for Nextcloud in MariaDB Database Server
+Log into MariaDB database server with the following command. Since MariaDB is now using unix_socket plugin to authentication user login, there’s no need to enter MariaDB root password. We just need to prefix the mysql command with sudo.
+
+$sudo mysql
+Then create a database for Nextcloud. This tutorial name the database nextcloud. You can use whatever name you like.
+
+mysql>create database nextcloud;
+Create the database user. Again, you can use your preferred name for this user. Replace your-password with your preferred password.
+
+mysql>create user nextclouduser@localhost identified by 'your-password';
+Grant this user all privileges on the nextcloud database.
+
+grant all privileges on nextcloud.* to nextclouduser@localhost identified by 'your-password';
+Flush privileges and exit.
+
+mysql>flush privileges;
+
+
+Step 3: Download and Install Nextcloud
+https://nextcloud.com/install/#instructions-server
+
+#apt install -y wget unzip
+#wget https://download.nextcloud.com/server/releases/nextcloud-19.0.1.zip
+
+unzip nextcloud-19.0.1.zip -d /var/www/
+
+The -d option specifies the target directory. NextCloud web files will be extracted to /var/www/nextcloud/. Then we need to change the owner of this directory to www-data so that the web server (Apache) can write to this directory.
+
+$sudo chown www-data:www-data /var/www/nextcloud/ -R
