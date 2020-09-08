@@ -1,1 +1,32 @@
+groupadd -g 5000 vmail
+mkdir /var/mail/vmail
+useradd -g vmail -u 5000 vmail -d /var/mail/vmail
+chown vmail:vmail /var/mail/vmail
+
+Create user
+mysql>CREATE USER 'vemail'@'loalhost' IDENTIFIED BY 'password';
+
+Creating the database
+Now, let’s create the database that will hold our user emails and passwords. Log into MySQL as root and type:
+
+CREATE DATABASE virtual_email;
+GRANT USAGE ON *.* TO vemailuser@'localhost' IDENTIFIED BY 'vemailpass';
+GRANT ALL PRIVILEGES ON virtual_email.* TO vemailuser@'localhost';
+
+Add the domains to the virtual_domains table. Replace the values for example.com and hostname with your own settings:
+
+
+INSERT INTO `virtual_email`.`virtual_domains`
+  (`id` ,`name`)
+VALUES
+  ('1', 'cybergate.info'),
+  ('2', 'cybergate.info'),
+  ('3', 'cybergate'),
+  ('4', 'localhost');
+  
+Show tables
+mysql>use virtual_email;
+mysql>Show tables;
+mysql>SELECT * FROM virtual_email.virtual_domains;
+
 
