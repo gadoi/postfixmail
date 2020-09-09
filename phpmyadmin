@@ -1,0 +1,76 @@
+Install phpMyAdmin With LAMP Stack On Ubuntu 20.04 LTS
+
+https://ostechnix.com/install-phpmyadmin-with-lamp-stack-on-ubuntu-20-04-lts/
+
+
+add-apt-repository universe
+apt update
+apt install phpmyadmin php-mbstring php-zip php-gd php-json php-curl
+
+if error
+#mysql -u root -p
+mysql>UNINSTALL COMPONENT "file://component_validate_password";
+mysql>exit
+
+Continous install 
+apt install phpmyadmin php-mbstring php-zip php-gd php-json php-curl
+-->ok
+
+re-enable Validate Password plugin
+#mysql -u root -p
+mysql> INSTALL COMPONENT "file://component_validate_password";
+mysql>exit
+
+#sudo phpenmod mbstring
+
+Create dedicated user to access phpMyAdmin dashboard
+#mysql -u root -p
+mysql> CREATE USER 'phpmyadminuser'@'localhost' IDENTIFIED BY 'Cyber123#@!';
+mysql> GRANT ALL PRIVILEGES ON *.* TO 'phpmyadminuser'@'localhost' WITH GRANT OPTION;
+mysql>exit
+
+Secure phpMyAdmin
+Disable MySQL root login to phpmyadmin dashboard
+vi /etc/phpmyadmin/config.inc.php
+
+Add/modify the following parameters:
+
+[...]
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
+$cfg['Servers'][$i]['AllowRoot'] = FALSE;
+[...]
+
+
+Password-protect phpMyAdmin Login page
+Since phpMyAdmin is an easy target for attackers, the next recommended task is to secure phpyMyAdmin web login page. The most common way to protect phpMyAdmin from unauthorized access is by using Apache's built-in .htaccess authentication and authorization functionalities.
+
+First of all, enable the use of .htaccess file overrides by editing the /phpmyadmin.conf file:
+
+$ sudo vi /etc/apache2/conf-available/phpmyadmin.conf
+$ cp /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/
+$ cd /etc/apache2/conf-available/
+$ mv apache.conf phymyadmin.conf
+
+add line "AllowOverride All"
+<Directory /usr/share/phpmyadmin>
+    Options SymLinksIfOwnerMatch
+    DirectoryIndex index.php
+    AllowOverride All
+
+...
+sudo service apache2 reload
+
+vi /usr/share/phpmyadmin/.htaccess
+
+AuthType Basic
+AuthName "Restricted Access"
+AuthUserFile /etc/phpmyadmin/.htpasswd
+Require valid-user
+
+#htpasswd -c /etc/phpmyadmin/.htpasswd pmauser
+
+
+
+//This will help to secure the site against bots and external attackers who target www.yourdomain.com/phpmyadmin or www.yourdomain.com/phpMyAdmin.
+#vi /etc/phpmyadmin/apache.conf 
+Alias /hiddendb /usr/share/phpMyAdmin
